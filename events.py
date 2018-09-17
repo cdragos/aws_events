@@ -1,6 +1,8 @@
 from collections import namedtuple
 from pathlib import Path
+import gzip
 import json
+import shutil
 import time
 
 import boto3
@@ -11,12 +13,23 @@ import settings
 Record = namedtuple('Record', ('file_name', 'source_bucket', 'sequence_number',))
 
 
-def _download_file(filename, source_bucket, sequence_number):
-    """Download a file from S3 to the settings assets folder."""
+def _download_file(filename, source_bucket):
+    """Download a file from S3 to the settings assets folder and extract it."""
     s3 = boto3.resource('s3')
     settings.DOWNLOAD_PATH.mkdir(exist_ok=True)
     filepath = settings.DOWNLOAD_PATH / Path(filename).name
     s3.Bucket(source_bucket).download_file(filename, str(filepath))
+
+    filepath_json = settings.DOWNLOAD_PATH / Path(filepath.stem).with_suffix('.json')
+    # extract contents from the gzip file to a new json file
+    with gzip.open(str(filepath), 'rb') as f_in, \
+         open(str(filepath_json), 'wb') as f_out:
+        shutil.copyfileobj(f_in, f_out)
+
+    # delete the gziped file
+    filepath.unlink()
+
+    return filepath_json
 
 
 def _get_kinessis_records(kinesis, shard_ids):
@@ -63,6 +76,4 @@ def fetch_events():
         shard['ShardId'] for shard in stream['StreamDescription']['Shards'])
 
     for record in _get_kinessis_records(kinesis, shard_ids):
-        _download_file(record.file_name,
-                       record.source_bucket,
-                       record.sequence_number)
+        _download_file(record.file_name, record.source_bucket)
