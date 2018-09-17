@@ -1,6 +1,7 @@
 from collections import namedtuple
-import time
+from pathlib import Path
 import json
+import time
 
 import boto3
 
@@ -10,8 +11,12 @@ import settings
 Record = namedtuple('Record', ('file_name', 'source_bucket', 'sequence_number',))
 
 
-def _download_file(file_name, source_bucket, sequence_number):
-    print (file_name, source_bucket, sequence_number)
+def _download_file(filename, source_bucket, sequence_number):
+    """Download a file from S3 to the settings assets folder."""
+    s3 = boto3.resource('s3')
+    settings.DOWNLOAD_PATH.mkdir(exist_ok=True)
+    filepath = settings.DOWNLOAD_PATH / Path(filename).name
+    s3.Bucket(source_bucket).download_file(filename, str(filepath))
 
 
 def _get_kinessis_records(kinesis, shard_ids):
@@ -40,11 +45,11 @@ def _get_kinessis_records(kinesis, shard_ids):
             for record in response['Records']:
                 sequence_number = record['SequenceNumber']
                 data = json.loads(record['Data'])
-                file_name = data['file_name']
+                filename = data['file_name']
                 source_bucket = data['source_bucket']
 
-                if file_name.startswith('in/hydra/ninja-dev/'):
-                    yield Record(file_name, source_bucket, sequence_number)
+                if filename.startswith('in/hydra/ninja-dev/'):
+                    yield Record(filename, source_bucket, sequence_number)
 
 
 def fetch_events():
