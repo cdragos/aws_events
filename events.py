@@ -3,6 +3,7 @@ from pathlib import Path
 import gzip
 import hashlib
 import json
+import logging
 import shutil
 import time
 
@@ -10,6 +11,10 @@ import boto3
 import requests
 
 import settings
+
+
+logger = logging.getLogger(__file__)
+logging.basicConfig(level='INFO')
 
 
 Record = namedtuple('Record', ('filename', 'source_bucket', 'sequence_number',))
@@ -31,11 +36,15 @@ def _track_file(filepath, filename, source_bucket):
         'nlines': num_of_lines,
         'hash': hash_md5.hexdigest(),
     }
+    logger.info('Track file metadata={}'.format(params))
     requests.get(url, params=params)
 
 
 def _download_file(filename, source_bucket):
     """Download a file from S3 to the settings assets folder and extract it."""
+    logger.info(
+        'Started downloading file with filename={} from source_bucket={}'
+        .format(filename, source_bucket))
     s3 = boto3.resource('s3')
     settings.DOWNLOAD_PATH.mkdir(exist_ok=True)
     filepath = settings.DOWNLOAD_PATH / Path(filename).name
@@ -60,6 +69,7 @@ def _get_kinessis_records(kinesis, shard_ids):
     `in/hydra/ninja-dev`.
     """
     for shard_id in shard_ids:
+        logger.info('Geting events for shard with id={}'.format(shard_id))
         shard_iterator = kinesis.get_shard_iterator(
             StreamName=settings.KINESIS_STREAM,
             ShardId=shard_id,
