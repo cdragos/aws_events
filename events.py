@@ -21,7 +21,14 @@ Record = namedtuple('Record', ('filename', 'source_bucket', 'sequence_number',))
 
 
 def _track_file(filepath, filename, source_bucket):
-    """Get metadata information for a file and call an external tracking serivce."""
+    """
+    Get metadata information for a file and call an external tracking serivce.
+
+    Args:
+        filepath (Path): Filepath for the file that we track.
+        filename (str): Filename.
+        source_bucket (str): Amazon source bucket where the file is stored.
+    """
     hash_md5 = hashlib.md5()
     num_of_lines = 0
     with filepath.open('r') as f:
@@ -44,6 +51,9 @@ def _save_sequence(sequence_number):
     """
     Save the last processed sequence number to a file. We are going to use it
     when the script runs again to start from the last processed event.
+
+    Args:
+        sequence_number (str): Sequence number for the event that was processed.
     """
     logger.info('Saving sequence_number={}'.format(sequence_number))
     filepath = settings.DOWNLOAD_PATH / 'sequence_number.txt'
@@ -52,7 +62,12 @@ def _save_sequence(sequence_number):
 
 
 def _get_last_sequence():
-    """Get the sequence number for the last event that was processed."""
+    """
+    Get the sequence number for the last event that was processed.
+
+    Returns:
+        str: Last sequence number that was processed.
+    """
     filepath = settings.DOWNLOAD_PATH / 'sequence_number.txt'
     if not filepath.exists():
         return None
@@ -64,7 +79,16 @@ def _get_last_sequence():
 
 
 def _download_file(filename, source_bucket):
-    """Download a file from S3 to the settings assets folder and extract it."""
+    """
+    Download a file from S3 to the settings assets folder and extract it.
+
+    Args:
+        filename (str): Filename.
+        source_bucket (str): Amazon source bucket where the file is stored.
+
+    Returns:
+        Path: Output path for the decompressed contents of the downloaded file.
+    """
     logger.info(
         'Started downloading file with filename={} from source_bucket={}'
         .format(filename, source_bucket))
@@ -90,6 +114,15 @@ def _get_kinessis_records(kinesis, shard_ids, last_sequence=None):
     """
     Process events from kinesis that have records with files that match
     `in/hydra/ninja-dev`.
+
+    Args:
+        kinesis (): Amazon Kinesis client.
+        shard_ids (list): List of kinesis shard ids.
+        last_sequence (str): Last sequence number that was processed.
+
+    Yields:
+        Record: Event record that consist of filename, source_bucket
+                and sequence number.
     """
     for shard_id in shard_ids:
         logger.info(
