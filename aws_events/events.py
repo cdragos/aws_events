@@ -10,7 +10,7 @@ import time
 import boto3
 import requests
 
-from aws_events import settings
+import settings
 
 
 logger = logging.getLogger(__file__)
@@ -26,19 +26,20 @@ def track_file(filepath, filename, source_bucket):
         filename (str): Filename.
         source_bucket (str): Amazon source bucket where the file is stored.
     """
-    hash_md5 = hashlib.md5()
     num_of_lines = 0
     with filepath.open('r') as f:
         for line in f:
-            hash_md5.update(line.encode('utf-8'))
             num_of_lines += 1
+
+    with filepath.open('rb') as f:
+        hash_md5 = hashlib.md5(f.read()).hexdigest()
 
     url = 'https://tracking-dev.onap.io/h/bdyt-case-ex1-dragos-catarahia'
     params = {
         'file_name': filename,
         'source_bucket': source_bucket,
         'nlines': num_of_lines,
-        'hash': hash_md5.hexdigest(),
+        'hash': hash_md5,
     }
     logger.info('Track file metadata={}'.format(params))
     requests.get(url, params=params)
