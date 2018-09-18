@@ -17,6 +17,25 @@ logger = logging.getLogger(__file__)
 Record = namedtuple('Record', ('filename', 'source_bucket', 'sequence_number'))
 
 
+def process_file(filepath):
+    logger.info('Process file with name={}'.format(filepath.name))
+    url = 'https://tracking-dev.onap.io/h/bdyt-case-ex2-dc'
+
+    with filepath.open('r') as f:
+        for line in f:
+            data = json.loads(line)
+            if data['params']['en'] not in ('session_start',
+                                            'location_change_click'):
+                continue
+
+            params = {
+                'sl': data['params']['sl'],
+                'sc': data['params']['sc'],
+                'gsl': data['meta']['cross_domain_session_long'],
+            }
+            requests.get(url, params=params)
+
+
 def track_file(filepath, filename, source_bucket):
     """
     Get metadata information for a file and call an external tracking serivce.
@@ -34,7 +53,7 @@ def track_file(filepath, filename, source_bucket):
     with filepath.open('rb') as f:
         hash_md5 = hashlib.md5(f.read()).hexdigest()
 
-    url = 'https://tracking-dev.onap.io/h/bdyt-case-ex1-dragos-catarahia'
+    url = 'https://tracking-dev.onap.io/h/bdyt-case-ex1-dc'
     params = {
         'file_name': filename,
         'source_bucket': source_bucket,
@@ -167,9 +186,10 @@ def fetch_events():
     last_sequence = get_last_sequence()
 
     for record in get_kinessis_records(kinesis, shard_id, last_sequence):
-        filepath_output = download_file(record.filename, record.source_bucket)
+        filepath = download_file(record.filename, record.source_bucket)
         save_sequence(record.sequence_number)
-        track_file(filepath_output, record.filename, record.source_bucket)
+        track_file(filepath, record.filename, record.source_bucket)
+        process_file(filepath)
 
 
 if __name__ == '__main__':
