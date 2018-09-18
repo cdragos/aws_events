@@ -6,4 +6,4 @@ venv/
 # Mac OS x
 .DS_Store
 # Project
-assets/
+assets

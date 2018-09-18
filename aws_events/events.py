@@ -179,3 +179,7 @@ def fetch_events():
             record.filename, record.source_bucket)
         _save_sequence(record.sequence_number)
         _track_file(filepath_output, record.filename, record.source_bucket)
+
+
+if __name__ == '__main__':
+    fetch_events()

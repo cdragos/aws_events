@@ -1,0 +1,13 @@
+version: '2'
+
+services:
+    aws_events:
+        container_name: aws_events
+        command: python events.py
+        build: ./aws_events
+        volumes:
+            - ./aws_events:/code
+            - ~/.aws:/root/.aws
+        stdin_open: true
+        tty: true
+
