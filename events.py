@@ -1,16 +1,37 @@
 from collections import namedtuple
 from pathlib import Path
 import gzip
+import hashlib
 import json
 import shutil
 import time
 
 import boto3
+import requests
 
 import settings
 
 
-Record = namedtuple('Record', ('file_name', 'source_bucket', 'sequence_number',))
+Record = namedtuple('Record', ('filename', 'source_bucket', 'sequence_number',))
+
+
+def _track_file(filepath, filename, source_bucket):
+    """Get metadata information for a file and call an external tracking serivce."""
+    hash_md5 = hashlib.md5()
+    num_of_lines = 0
+    with filepath.open('r') as f:
+        for line in f:
+            hash_md5.update(line.encode('utf-8'))
+            num_of_lines += 1
+
+    url = 'https://tracking-dev.onap.io/h/bdyt-case-ex1-dragos-catarahia'
+    params = {
+        'file_name': filename,
+        'source_bucket': source_bucket,
+        'nlines': num_of_lines,
+        'hash': hash_md5.hexdigest(),
+    }
+    requests.get(url, params=params)
 
 
 def _download_file(filename, source_bucket):
@@ -20,16 +41,17 @@ def _download_file(filename, source_bucket):
     filepath = settings.DOWNLOAD_PATH / Path(filename).name
     s3.Bucket(source_bucket).download_file(filename, str(filepath))
 
-    filepath_json = settings.DOWNLOAD_PATH / Path(filepath.stem).with_suffix('.json')
+    filepath_output = (
+        settings.DOWNLOAD_PATH / Path(filepath.stem).with_suffix('.json'))
     # extract contents from the gzip file to a new json file
     with gzip.open(str(filepath), 'rb') as f_in, \
-         open(str(filepath_json), 'wb') as f_out:
+         filepath_output.open('wb') as f_out:
         shutil.copyfileobj(f_in, f_out)
 
     # delete the gziped file
     filepath.unlink()
 
-    return filepath_json
+    return filepath_output
 
 
 def _get_kinessis_records(kinesis, shard_ids):
@@ -76,4 +98,6 @@ def fetch_events():
         shard['ShardId'] for shard in stream['StreamDescription']['Shards'])
 
     for record in _get_kinessis_records(kinesis, shard_ids):
-        _download_file(record.file_name, record.source_bucket)
+        filepath_output = _download_file(
+            record.filename, record.source_bucket)
+        _track_file(filepath_output, record.filename, record.source_bucket)
