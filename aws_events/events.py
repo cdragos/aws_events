@@ -10,14 +10,14 @@ import time
 import boto3
 import requests
 
-import settings
+from aws_events import settings
 
 
 logger = logging.getLogger(__file__)
 Record = namedtuple('Record', ('filename', 'source_bucket', 'sequence_number'))
 
 
-def track_file(filepath, filename, source_bucket, executor):
+def track_file(filepath, filename, source_bucket):
     """
     Get metadata information for a file and call an external tracking serivce.
 
@@ -107,7 +107,7 @@ def download_file(filename, source_bucket):
     return filepath_output
 
 
-def get_kinessis_records(kinesis, shard_ids, last_sequence=None):
+def get_kinessis_records(kinesis, shard_id, last_sequence=None):
     """
     Process events from kinesis that have records with files that match
     `in/hydra/ninja-dev`.
@@ -121,37 +121,36 @@ def get_kinessis_records(kinesis, shard_ids, last_sequence=None):
         Record: Event record that consist of filename, source_bucket
                 and sequence number.
     """
-    for shard_id in shard_ids:
-        logger.info(
-            'Geting events for shard with id={} and last_sequence_number={}'
-            .format(shard_id, last_sequence or 'latest'))
-        iter_data = {
-            'StreamName': settings.KINESIS_STREAM,
-            'ShardId': shard_id,
-        }
-        if last_sequence:
-            iter_data['ShardIteratorType'] = 'AFTER_SEQUENCE_NUMBER'
-            iter_data['StartingSequenceNumber'] = last_sequence
-        else:
-            iter_data['ShardIteratorType'] = 'LATEST'
+    logger.info(
+        'Geting events for shard with id={} and last_sequence_number={}'
+        .format(shard_id, last_sequence or 'latest'))
+    iter_data = {
+        'StreamName': settings.KINESIS_STREAM,
+        'ShardId': shard_id,
+    }
+    if last_sequence:
+        iter_data['ShardIteratorType'] = 'AFTER_SEQUENCE_NUMBER'
+        iter_data['StartingSequenceNumber'] = last_sequence
+    else:
+        iter_data['ShardIteratorType'] = 'LATEST'
 
-        shard_iterator = kinesis.get_shard_iterator(**iter_data)['ShardIterator']
-        while True:
-            response = kinesis.get_records(
-                ShardIterator=shard_iterator,
-                Limit=settings.KINESIS_RECORDS_LIMIT)
-            shard_iterator = response['NextShardIterator']
-            # wait between calls to avoid a `ProvisionedThroughputExceededException`
-            time.sleep(0.2)
+    shard_iterator = kinesis.get_shard_iterator(**iter_data)['ShardIterator']
+    while True:
+        response = kinesis.get_records(
+            ShardIterator=shard_iterator,
+            Limit=settings.KINESIS_RECORDS_LIMIT)
+        shard_iterator = response['NextShardIterator']
+        # wait between calls to avoid a `ProvisionedThroughputExceededException`
+        time.sleep(0.2)
 
-            for record in response['Records']:
-                sequence_number = record['SequenceNumber']
-                data = json.loads(record['Data'])
-                filename = data['file_name']
-                source_bucket = data['source_bucket']
+        for record in response['Records']:
+            sequence_number = record['SequenceNumber']
+            data = json.loads(record['Data'])
+            filename = data['file_name']
+            source_bucket = data['source_bucket']
 
-                if filename.startswith('in/hydra/ninja-dev/'):
-                    yield Record(filename, source_bucket, sequence_number)
+            if filename.startswith('in/hydra/ninja-dev/'):
+                yield Record(filename, source_bucket, sequence_number)
 
 
 def fetch_events():
@@ -161,13 +160,12 @@ def fetch_events():
     """
     kinesis = boto3.client('kinesis')
     stream = kinesis.describe_stream(StreamName=settings.KINESIS_STREAM)
-    shard_ids = (
-        shard['ShardId'] for shard in stream['StreamDescription']['Shards'])
+    shard_id = stream['StreamDescription']['Shards'][0]['ShardId']
 
     # fetch the events from the last successful processed event
     last_sequence = get_last_sequence()
 
-    for record in get_kinessis_records(kinesis, shard_ids, last_sequence):
+    for record in get_kinessis_records(kinesis, shard_id, last_sequence):
         filepath_output = download_file(record.filename, record.source_bucket)
         save_sequence(record.sequence_number)
         track_file(filepath_output, record.filename, record.source_bucket)
