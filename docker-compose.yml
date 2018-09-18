@@ -8,6 +8,3 @@ services:
         volumes:
             - ./aws_events:/code
             - ~/.aws:/root/.aws
-        stdin_open: true
-        tty: true
-
