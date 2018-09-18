@@ -16,10 +16,12 @@ import settings
 logger = logging.getLogger(__file__)
 Record = namedtuple('Record', ('filename', 'source_bucket', 'sequence_number'))
 
+TRACK_FILE_URL = 'https://tracking-dev.onap.io/h/bdyt-case-ex1-dc'
+PROCESS_FILE_URL = 'https://tracking-dev.onap.io/h/bdyt-case-ex2-dc'
+
 
 def process_file(filepath):
     logger.info('Process file with name={}'.format(filepath.name))
-    url = 'https://tracking-dev.onap.io/h/bdyt-case-ex2-dc'
 
     with filepath.open('r') as f:
         for line in f:
@@ -33,7 +35,7 @@ def process_file(filepath):
                 'sc': data['params']['sc'],
                 'gsl': data['meta']['cross_domain_session_long'],
             }
-            requests.get(url, params=params)
+            requests.get(PROCESS_FILE_URL, params=params)
 
 
 def track_file(filepath, filename, source_bucket):
@@ -53,7 +55,6 @@ def track_file(filepath, filename, source_bucket):
     with filepath.open('rb') as f:
         hash_md5 = hashlib.md5(f.read()).hexdigest()
 
-    url = 'https://tracking-dev.onap.io/h/bdyt-case-ex1-dc'
     params = {
         'file_name': filename,
         'source_bucket': source_bucket,
@@ -61,7 +62,7 @@ def track_file(filepath, filename, source_bucket):
         'hash': hash_md5,
     }
     logger.info('Track file metadata={}'.format(params))
-    requests.get(url, params=params)
+    requests.get(TRACK_FILE_URL, params=params)
 
 
 def save_sequence(sequence_number):
