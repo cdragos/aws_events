@@ -14,9 +14,6 @@ import settings
 
 
 logger = logging.getLogger(__file__)
-logging.basicConfig(level='INFO')
-
-
 Record = namedtuple('Record', ('filename', 'source_bucket', 'sequence_number'))
 
 
@@ -177,4 +174,5 @@ def fetch_events():
 
 
 if __name__ == '__main__':
+    logging.basicConfig(level='INFO')
     fetch_events()
