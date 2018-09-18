@@ -21,6 +21,12 @@ PROCESS_FILE_URL = 'https://tracking-dev.onap.io/h/bdyt-case-ex2-dc'
 
 
 def process_file(filepath):
+    """
+    Process downloaded file
+
+    Args:
+        filepath (Path): Filepath for the file that we process.
+    """
     logger.info('Process file with name={}'.format(filepath.name))
 
     with filepath.open('r') as f:
@@ -134,7 +140,7 @@ def get_kinessis_records(kinesis, shard_id, last_sequence=None):
     `in/hydra/ninja-dev`.
 
     Args:
-        kinesis (): Amazon Kinesis client.
+        kinesis (botocore.client.Kinesis): Amazon Kinesis client.
         shard_ids (list): List of kinesis shard ids.
         last_sequence (str): Last sequence number that was processed.
 
