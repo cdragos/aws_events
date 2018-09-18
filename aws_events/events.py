@@ -17,10 +17,10 @@ logger = logging.getLogger(__file__)
 logging.basicConfig(level='INFO')
 
 
-Record = namedtuple('Record', ('filename', 'source_bucket', 'sequence_number',))
+Record = namedtuple('Record', ('filename', 'source_bucket', 'sequence_number'))
 
 
-def _track_file(filepath, filename, source_bucket):
+def track_file(filepath, filename, source_bucket, executor):
     """
     Get metadata information for a file and call an external tracking serivce.
 
@@ -47,7 +47,7 @@ def _track_file(filepath, filename, source_bucket):
     requests.get(url, params=params)
 
 
-def _save_sequence(sequence_number):
+def save_sequence(sequence_number):
     """
     Save the last processed sequence number to a file. We are going to use it
     when the script runs again to start from the last processed event.
@@ -61,7 +61,7 @@ def _save_sequence(sequence_number):
         f.write(sequence_number)
 
 
-def _get_last_sequence():
+def get_last_sequence():
     """
     Get the sequence number for the last event that was processed.
 
@@ -78,7 +78,7 @@ def _get_last_sequence():
     return sequence_number
 
 
-def _download_file(filename, source_bucket):
+def download_file(filename, source_bucket):
     """
     Download a file from S3 to the settings assets folder and extract it.
 
@@ -110,7 +110,7 @@ def _download_file(filename, source_bucket):
     return filepath_output
 
 
-def _get_kinessis_records(kinesis, shard_ids, last_sequence=None):
+def get_kinessis_records(kinesis, shard_ids, last_sequence=None):
     """
     Process events from kinesis that have records with files that match
     `in/hydra/ninja-dev`.
@@ -147,10 +147,6 @@ def _get_kinessis_records(kinesis, shard_ids, last_sequence=None):
             # wait between calls to avoid a `ProvisionedThroughputExceededException`
             time.sleep(0.2)
 
-            # skip empty records
-            if len(response['Records']) == 0:
-                continue
-
             for record in response['Records']:
                 sequence_number = record['SequenceNumber']
                 data = json.loads(record['Data'])
@@ -172,13 +168,12 @@ def fetch_events():
         shard['ShardId'] for shard in stream['StreamDescription']['Shards'])
 
     # fetch the events from the last successful processed event
-    last_sequence = _get_last_sequence()
+    last_sequence = get_last_sequence()
 
-    for record in _get_kinessis_records(kinesis, shard_ids, last_sequence):
-        filepath_output = _download_file(
-            record.filename, record.source_bucket)
-        _save_sequence(record.sequence_number)
-        _track_file(filepath_output, record.filename, record.source_bucket)
+    for record in get_kinessis_records(kinesis, shard_ids, last_sequence):
+        filepath_output = download_file(record.filename, record.source_bucket)
+        save_sequence(record.sequence_number)
+        track_file(filepath_output, record.filename, record.source_bucket)
 
 
 if __name__ == '__main__':
