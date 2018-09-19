@@ -33,9 +33,7 @@ def track_url(url, params):
     Returns
         request.Response: Server response.
     """
-    logger.info(
-        'Track request initialized for url={} and params={}'
-        .format(url, params))
+    logger.info(f'Track request initialized for url={url} and params={params}')
     with requests.Session() as session:
         retries = Retry(total=3, backoff_factor=0.1)
         adapter = requests.adapters.HTTPAdapter(max_retries=retries)
@@ -62,7 +60,7 @@ def process_file(filepath, executor):
         filepath (Path): Filepath for the file that we process.
         executor (ThreadPoolExecutor): Thread executor.
     """
-    logger.info('Process file with name={}'.format(filepath.name))
+    logger.info(f'Process file with name={filepath.name}')
     with settings.RULES_PATH.open('r') as f:
         rules_data = yaml.load(f.read())
 
@@ -126,7 +124,7 @@ def track_file(filepath, filename, source_bucket, executor):
         'nlines': num_of_lines,
         'hash': hash_md5,
     }
-    logger.info('Track file metadata={}'.format(params))
+    logger.info(f'Track file metadata={params}')
     executor.submit(track_url, TRACK_FILE_URL, params)
 
 
@@ -138,7 +136,7 @@ def save_sequence(sequence_number):
     Args:
         sequence_number (str): Sequence number for the event that was processed.
     """
-    logger.info('Saving sequence_number={}'.format(sequence_number))
+    logger.info(f'Saving sequence_number={sequence_number}')
     filepath = settings.DOWNLOAD_PATH / 'sequence_number.txt'
     with filepath.open('w+') as f:
         f.write(sequence_number)
@@ -172,9 +170,8 @@ def download_file(filename, source_bucket):
     Returns:
         Path: Output path for the decompressed contents of the downloaded file.
     """
-    logger.info(
-        'Started downloading file with filename={} from source_bucket={}'
-        .format(filename, source_bucket))
+    logger.info(f'Started downloading file with filename={filename} '
+                f'from source_bucket={source_bucket}')
     s3 = boto3.resource('s3')
     settings.DOWNLOAD_PATH.mkdir(exist_ok=True)
     filepath = settings.DOWNLOAD_PATH / Path(filename).name
@@ -207,9 +204,10 @@ def get_kinessis_records(kinesis, shard_id, last_sequence=None):
         Record: Event record that consist of filename, source_bucket
                 and sequence number.
     """
+    last_sequence_description = last_sequence or 'latest'
     logger.info(
-        'Geting events for shard with id={} and last_sequence_number={}'
-        .format(shard_id, last_sequence or 'latest'))
+        f'Geting events for shard with id={shard_id} and '
+        f'last_sequence_number={last_sequence_description}')
     iter_data = {
         'StreamName': settings.KINESIS_STREAM,
         'ShardId': shard_id,
