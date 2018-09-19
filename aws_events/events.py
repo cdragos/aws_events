@@ -11,6 +11,7 @@ import time
 
 import boto3
 import requests
+import yaml
 
 import settings
 
@@ -19,7 +20,6 @@ logger = logging.getLogger(__file__)
 Record = namedtuple('Record', ('filename', 'source_bucket', 'sequence_number'))
 
 TRACK_FILE_URL = 'https://tracking-dev.onap.io/h/bdyt-case-ex1-dc'
-PROCESS_FILE_URL = 'https://tracking-dev.onap.io/h/bdyt-case-ex2-dc'
 
 
 def track_url(url, params):
@@ -43,28 +43,64 @@ def track_url(url, params):
         return requests.get(url, params)
 
 
+def lookup(value, path):
+    """
+    Lookup nested dictionaries keys based on . notation
+
+    value (dict): The dictionary where we will search for keys.
+    path (list): List of keys. Ex: ['params', 'en']
+    """
+    return (path and lookup(value[path[0]], path[1:])) or value
+
+
 def process_file(filepath, executor):
     """
-    Process downloaded file
+    Process downloaded file. Parse json data from file and based on rules
+    from configuration send that data to a tracking url in a separate thread.
 
     Args:
         filepath (Path): Filepath for the file that we process.
+        executor (ThreadPoolExecutor): Thread executor.
     """
     logger.info('Process file with name={}'.format(filepath.name))
+    with settings.RULES_PATH.open('r') as f:
+        rules_data = yaml.load(f.read())
 
     with filepath.open('r') as f:
         for line in f:
-            data = json.loads(line)
-            if data['params']['en'] not in ('session_start',
-                                            'location_change_click'):
+            filedata = json.loads(line)
+            for url, params in rules_validator(filedata, rules_data):
+                executor.submit(track_url, url, params)
+
+
+def rules_validator(filedata, rules_data):
+    """
+    Filter which file data to process and to which endpoing based on rules.
+
+    Args:
+        filedata (dict): Data from Amazon file.
+        rules_data (dict): Data from rules configuration file.
+
+    Yields:
+        str: Url to send data.
+        dict: Filtered data that we need to send.
+    """
+    rules, urls = rules_data['rules'], rules_data['urls']
+
+    for rule in rules:
+        if filedata['params']['en'] not in rule['events']:
+            continue
+
+        for key in rule:
+            if key == 'events':
                 continue
 
             params = {
-                'sl': data['params']['sl'],
-                'sc': data['params']['sc'],
-                'gsl': data['meta']['cross_domain_session_long'],
+                param.split('.')[1]: lookup(filedata, param.split('.'))
+                for param in rule[key]
             }
-            executor.submit(track_url, PROCESS_FILE_URL, params)
+            if params:
+                yield urls[key], params
 
 
 def track_file(filepath, filename, source_bucket, executor):
