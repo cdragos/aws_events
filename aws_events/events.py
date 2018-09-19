@@ -71,7 +71,7 @@ def process_file(filepath, executor):
 
 def rules_validator(filedata, rules_data):
     """
-    Filter which file data to process and to which endpoing based on rules.
+    Filter which filedata to process and to which endpoint based on rules.
 
     Args:
         filedata (dict): Data from Amazon file.
@@ -82,7 +82,6 @@ def rules_validator(filedata, rules_data):
         dict: Filtered data that we need to send.
     """
     rules, urls = rules_data['rules'], rules_data['urls']
-
     for rule in rules:
         if filedata['params']['en'] not in rule['events']:
             continue
@@ -90,7 +89,6 @@ def rules_validator(filedata, rules_data):
         for key in rule:
             if key == 'events':
                 continue
-
             params = {
                 param.split('.')[1]: lookup(filedata, param.split('.'))
                 for param in rule[key]
