@@ -1,0 +1,21 @@
+
+urls:
+  url1: https://tracking-dev.onap.io/h/bdyt-case-ex3-1-dc
+  url2: https://tracking-dev.onap.io/h/bdyt-case-ex3-2-dc
+  url3: https://tracking-dev.onap.io/h/bdyt-case-ex3-3-dc
+
+rules:
+  - events: ['session_start', 'location_change_click']
+    url1: ['params.en', 'params.sl', 'params.sc']
+    url2: ['params.en', 'meta.cross_domain_session_long']
+    url3: ['params.en', 'meta.cross_domain_session_long', 'meta.date']
+
+  - events: ['filter_click']
+    url1: ['params.en', 'headers.user-agent']
+    url2: ['params.en', 'meta.cross_domain_session_long', 'meta.date', 'headers.user-agent']
+    url3: []
+
+  - events: ['editing_title_valid']
+    url1: []
+    url2: ['meta.cross_domain_session_long', 'meta.date', 'headers.user-agent']
+    url3: []
