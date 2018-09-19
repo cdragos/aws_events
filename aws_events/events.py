@@ -1,5 +1,6 @@
 from collections import namedtuple
 from pathlib import Path
+from urllib3 import Retry
 import gzip
 import hashlib
 import json
@@ -18,6 +19,14 @@ Record = namedtuple('Record', ('filename', 'source_bucket', 'sequence_number'))
 
 TRACK_FILE_URL = 'https://tracking-dev.onap.io/h/bdyt-case-ex1-dc'
 PROCESS_FILE_URL = 'https://tracking-dev.onap.io/h/bdyt-case-ex2-dc'
+
+
+def track_url(url, params):
+    with requests.Session() as session:
+        retries = Retry(total=3, backoff_factor=0.1)
+        adapter = requests.adapters.HTTPAdapter(max_retries=retries)
+        session.mount('https://', adapter)
+        requests.get(url, params)
 
 
 def process_file(filepath):
@@ -41,7 +50,7 @@ def process_file(filepath):
                 'sc': data['params']['sc'],
                 'gsl': data['meta']['cross_domain_session_long'],
             }
-            requests.get(PROCESS_FILE_URL, params=params)
+            track_url(PROCESS_FILE_URL, params)
 
 
 def track_file(filepath, filename, source_bucket):
@@ -68,7 +77,7 @@ def track_file(filepath, filename, source_bucket):
         'hash': hash_md5,
     }
     logger.info('Track file metadata={}'.format(params))
-    requests.get(TRACK_FILE_URL, params=params)
+    track_url(TRACK_FILE_URL, params)
 
 
 def save_sequence(sequence_number):
