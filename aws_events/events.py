@@ -19,8 +19,6 @@ import settings
 logger = logging.getLogger(__file__)
 Record = namedtuple('Record', ('filename', 'source_bucket', 'sequence_number'))
 
-TRACK_FILE_URL = 'https://tracking-dev.onap.io/h/bdyt-case-ex1-dc'
-
 
 def track_url(url, params):
     """
@@ -125,7 +123,7 @@ def track_file(filepath, filename, source_bucket, executor):
         'hash': hash_md5,
     }
     logger.info(f'Track file metadata={params}')
-    executor.submit(track_url, TRACK_FILE_URL, params)
+    executor.submit(track_url, settings.TRACK_FILE_URL, params)
 
 
 def save_sequence(sequence_number):
