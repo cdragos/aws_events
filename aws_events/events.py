@@ -1,4 +1,5 @@
 from collections import namedtuple
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from urllib3 import Retry
 import gzip
@@ -22,14 +23,17 @@ PROCESS_FILE_URL = 'https://tracking-dev.onap.io/h/bdyt-case-ex2-dc'
 
 
 def track_url(url, params):
+    logger.info(
+        'Track request initialized for url={} and params={}'
+        .format(url, params))
     with requests.Session() as session:
         retries = Retry(total=3, backoff_factor=0.1)
         adapter = requests.adapters.HTTPAdapter(max_retries=retries)
         session.mount('https://', adapter)
-        requests.get(url, params)
+        return requests.get(url, params)
 
 
-def process_file(filepath):
+def process_file(filepath, executor):
     """
     Process downloaded file
 
@@ -50,10 +54,10 @@ def process_file(filepath):
                 'sc': data['params']['sc'],
                 'gsl': data['meta']['cross_domain_session_long'],
             }
-            track_url(PROCESS_FILE_URL, params)
+            executor.submit(track_url, PROCESS_FILE_URL, params)
 
 
-def track_file(filepath, filename, source_bucket):
+def track_file(filepath, filename, source_bucket, executor):
     """
     Get metadata information for a file and call an external tracking serivce.
 
@@ -77,7 +81,7 @@ def track_file(filepath, filename, source_bucket):
         'hash': hash_md5,
     }
     logger.info('Track file metadata={}'.format(params))
-    track_url(TRACK_FILE_URL, params)
+    executor.submit(track_url, TRACK_FILE_URL, params)
 
 
 def save_sequence(sequence_number):
@@ -201,11 +205,12 @@ def fetch_events():
     # fetch the events from the last successful processed event
     last_sequence = get_last_sequence()
 
-    for record in get_kinessis_records(kinesis, shard_id, last_sequence):
-        filepath = download_file(record.filename, record.source_bucket)
-        save_sequence(record.sequence_number)
-        track_file(filepath, record.filename, record.source_bucket)
-        process_file(filepath)
+    with ThreadPoolExecutor(max_workers=5) as executor:
+        for record in get_kinessis_records(kinesis, shard_id, last_sequence):
+            filepath = download_file(record.filename, record.source_bucket)
+            save_sequence(record.sequence_number)
+            track_file(filepath, record.filename, record.source_bucket, executor)
+            process_file(filepath, executor)
 
 
 if __name__ == '__main__':
