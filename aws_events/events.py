@@ -23,6 +23,16 @@ PROCESS_FILE_URL = 'https://tracking-dev.onap.io/h/bdyt-case-ex2-dc'
 
 
 def track_url(url, params):
+    """
+    Send a GET request to an url with params.
+
+    Args:
+        url (str): Url.
+        params (dict): GET request params for the url.
+
+    Returns
+        request.Response: Server response.
+    """
     logger.info(
         'Track request initialized for url={} and params={}'
         .format(url, params))
